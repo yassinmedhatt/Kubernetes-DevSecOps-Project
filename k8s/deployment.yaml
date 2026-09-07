@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: secure-k8s-api
+  namespace: secure-k8s
+  labels:
+    app: secure-k8s-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: secure-k8s-api
+  template:
+    metadata:
+      labels:
+        app: secure-k8s-api
+    spec:
+      automountServiceAccountToken: true
+      serviceAccountName: secure-k8s-api # Moved to PodSpec level
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: secure-k8s-api
+          image: secure-k8s-api:1.4
+          imagePullPolicy: Never
+          env:
+            - name: APP_MESSAGE
+              valueFrom:
+                configMapKeyRef:
+                  name: secure-k8s-api-config
+                  key: APP_MESSAGE
+
+            - name: DEMO_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: secure-k8s-api-secret
+                  key: DEMO_SECRET
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - containerPort: 3000
+              name: http
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: tmp-dir
+              mountPath: /tmp
+      volumes:
+        - name: tmp-dir
+          emptyDir: {}

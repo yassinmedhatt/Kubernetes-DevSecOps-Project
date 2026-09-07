@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: secure-k8s-api-config
+  namespace: secure-k8s
+
+data:
+  APP_MESSAGE: "Configuration loaded from Kubernetes ConfigMap"

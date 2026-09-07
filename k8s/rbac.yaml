@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: secure-k8s-api
+  namespace: secure-k8s
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: secure-k8s-api-pod-reader
+  namespace: secure-k8s
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: secure-k8s-api-pod-reader
+  namespace: secure-k8s
+subjects:
+  - kind: ServiceAccount
+    name: secure-k8s-api
+    namespace: secure-k8s
+roleRef:
+  kind: Role
+  name: secure-k8s-api-pod-reader
+  apiGroup: rbac.authorization.k8s.io
