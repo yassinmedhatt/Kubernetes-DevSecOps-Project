@@ -9,7 +9,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: read        
 
 jobs:
   ci:
@@ -77,3 +77,10 @@ jobs:
 
       - name: Analyze with CodeQL
         uses: github/codeql-action/analyze@v4
+
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Dependency vulnerability scan
+        run: npm audit --audit-level=high
