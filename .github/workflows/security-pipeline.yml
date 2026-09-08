@@ -101,3 +101,18 @@ jobs:
 
       - name: Dependency vulnerability scan
         run: npm audit --audit-level=high
+
+
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Build Docker image
+        run: docker build -t secure-k8s-api:ci .
