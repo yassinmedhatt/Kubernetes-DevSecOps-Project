@@ -144,4 +144,29 @@ jobs:
       - name: Show Trivy results
         run: cat trivy-results.json
 
-        
+  sbom:
+    name: SBOM - Generate Software Bill of Materials
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Build Docker image
+        run: docker build -t secure-k8s-api:ci .
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: secure-k8s-api:ci
+          format: cyclonedx-json
+          output-file: sbom.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: secure-k8s-api-sbom
+          path: sbom.json      
