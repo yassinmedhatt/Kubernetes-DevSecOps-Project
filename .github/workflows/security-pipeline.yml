@@ -213,9 +213,9 @@ jobs:
         run: |
           docker tag \
             secure-k8s-api:${{ github.sha }} \
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/kubernetes-devsecops-project:${{ github.sha }}
 
       - name: Push image
         run: |
           docker push \
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/kubernetes-devsecops-project:${{ github.sha }}
