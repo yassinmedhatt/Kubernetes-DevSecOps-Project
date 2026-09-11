@@ -219,3 +219,62 @@ jobs:
         run: |
           docker push \
             ghcr.io/${{ github.repository_owner }}/kubernetes-devsecops-project:${{ github.sha }}
+
+  deploy:
+    name: Deploy to Minikube
+    runs-on: self-hosted
+    needs: publish
+
+    # Never let pull-request code execute on the personal self-hosted runner.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+
+      - name: Verify Minikube
+        shell: powershell
+        run: |
+          minikube status
+          kubectl cluster-info
+
+      - name: Log in to GitHub Container Registry
+        shell: powershell
+        run: |
+          $env:GITHUB_TOKEN | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull exact image from GHCR
+        shell: powershell
+        run: |
+          docker pull ghcr.io/${{ github.repository_owner }}/kubernetes-devsecops-project:${{ github.sha }}
+
+      - name: Load image into Minikube
+        shell: powershell
+        run: |
+          minikube image load ghcr.io/${{ github.repository_owner }}/kubernetes-devsecops-project:${{ github.sha }}
+
+      - name: Deploy exact image to Kubernetes
+        shell: powershell
+        run: |
+          kubectl set image deployment/secure-k8s-api `
+            secure-k8s-api=ghcr.io/${{ github.repository_owner }}/kubernetes-devsecops-project:${{ github.sha }} `
+            -n secure-k8s
+
+      - name: Wait for rollout
+        shell: powershell
+        run: |
+          kubectl rollout status deployment/secure-k8s-api -n secure-k8s --timeout=120s
+
+      - name: Verify application health
+        shell: powershell
+        run: |
+          $pod = kubectl get pod -n secure-k8s `
+            -l app=secure-k8s-api `
+            -o jsonpath="{.items[0].metadata.name}"
+
+          kubectl exec $pod -n secure-k8s -- `
+            wget -qO- http://localhost:3000/health
