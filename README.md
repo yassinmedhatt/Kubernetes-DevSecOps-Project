@@ -63,6 +63,47 @@ Every push to the `main` branch triggers an automated pipeline that:
 
 ## CI/CD Pipeline
 
+## Architecture
+
+```mermaid
+flowchart TD
+    A[Developer] -->|git push main| B[GitHub Repository]
+
+    B --> C[GitHub Actions]
+
+    C --> D[CI<br/>Install + Health Check]
+    C --> E[Gitleaks<br/>Secret Scanning]
+    C --> F[CodeQL<br/>SAST]
+    C --> G[npm audit<br/>SCA]
+
+    D --> H[Docker Build]
+    E --> H
+    F --> H
+    G --> H
+
+    H --> I[Trivy<br/>Container Scan]
+    H --> J[SBOM<br/>CycloneDX]
+
+    I --> K[Publish Image]
+    J --> K
+
+    K --> L[GitHub Container Registry<br/>GHCR]
+
+    L -->|Exact commit SHA| M[Self-Hosted Runner<br/>Windows]
+
+    M -->|docker pull| L
+    M -->|minikube image load| N[Minikube]
+
+    M -->|kubectl set image| N
+
+    N --> O[Kubernetes Deployment]
+    O --> P[Secure Kubernetes Pod]
+    P --> Q[Express API]
+
+    Q --> R[Liveness / Readiness<br/>Health Checks]
+```
+
+
 The pipeline follows a security-focused workflow:
 
 ```text
