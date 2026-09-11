@@ -41,7 +41,7 @@ Every push to the `main` branch triggers an automated pipeline that:
 .
 ├── .github/
 │   └── workflows/
-│       └── secure-k8s-pipeline.yml
+│       └── security-pipeline.yml
 │
 ├── k8s/
 │   ├── configmap.yaml
