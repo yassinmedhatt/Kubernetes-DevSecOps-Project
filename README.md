@@ -128,20 +128,80 @@ Kubernetes Rollout
 Application Health Check
 ```
 
-## Kubernetes Security
+## Security Controls
 
-The Kubernetes deployment applies multiple container and workload security controls, including:
+Security is applied at multiple stages of the software delivery and deployment lifecycle.
 
-* Non-root container execution
-* Read-only root filesystem
-* All Linux capabilities dropped
-* Privilege escalation disabled
-* Seccomp `RuntimeDefault`
-* CPU and memory resource limits
-* Kubernetes Secrets and ConfigMaps
-* Least-privilege RBAC
-* Liveness and readiness probes
-* Service account isolation
+### Source & Dependency Security
+
+| Control       | Purpose                                                           | Implementation                           |
+| ------------- | ----------------------------------------------------------------- | ---------------------------------------- |
+| **Gitleaks**  | Detects accidentally committed secrets                            | GitHub Actions secret scanning           |
+| **CodeQL**    | Identifies potential security vulnerabilities in application code | JavaScript SAST                          |
+| **npm audit** | Checks application dependencies for known vulnerabilities         | Dependency scanning during CI            |
+| **Trivy**     | Scans the built container image for known vulnerabilities         | HIGH and CRITICAL vulnerability scanning |
+| **SBOM**      | Provides a software component inventory for the container         | CycloneDX SBOM generation                |
+
+### Container Security
+
+The Docker image is hardened before deployment:
+
+* **Non-root user:** The application runs as the unprivileged `node` user instead of root.
+* **Minimal base image:** Uses the Alpine-based Node.js image to reduce the container footprint.
+* **Read-only filesystem:** The container root filesystem is mounted as read-only.
+* **Dropped capabilities:** All Linux capabilities are dropped.
+* **No privilege escalation:** `allowPrivilegeEscalation` is disabled.
+* **Writable `/tmp` only:** Temporary writes are isolated to a dedicated temporary filesystem.
+
+### Kubernetes Security
+
+The Kubernetes workload applies additional runtime restrictions:
+
+* **`runAsNonRoot: true`** — prevents the container from running as root.
+* **Explicit UID/GID:** The workload runs under a dedicated non-root user and group.
+* **Seccomp `RuntimeDefault`:** Applies the container runtime's default system-call filtering profile.
+* **Resource limits:** CPU and memory limits reduce the impact of resource exhaustion.
+* **Least-privilege RBAC:** The application's ServiceAccount is restricted to reading Pods within its own namespace.
+* **Kubernetes Secret:** Sensitive configuration is provided through a Kubernetes Secret rather than being hardcoded into the application.
+* **ConfigMap:** Non-sensitive configuration is separated from the container image.
+* **Read-only root filesystem:** Prevents the application from modifying the container's root filesystem at runtime.
+* **Liveness and readiness probes:** Kubernetes verifies that the application is healthy and ready to receive traffic.
+
+### Least-Privilege RBAC
+
+The application uses a dedicated Kubernetes ServiceAccount with a namespace-scoped Role.
+
+Its permissions are intentionally limited to:
+
+```text
+Resource: Pods
+Namespace: secure-k8s
+Allowed:  get, list
+```
+
+The ServiceAccount cannot:
+
+```text
+Delete Pods
+Create Deployments
+Access Secrets
+Access resources in other namespaces
+```
+
+This follows the principle of least privilege and limits the potential impact if the application were compromised.
+
+### Deployment Integrity
+
+Images are tagged using the Git commit SHA rather than a mutable tag such as `latest`.
+
+Example:
+
+```text
+ghcr.io/yassinmedhatt/kubernetes-devsecops-project:<commit-sha>
+```
+
+The deployment process retrieves and deploys the exact image associated with the triggering commit, providing traceability between source code, the container image, and the running Kubernetes workload.
+
 
 ## Image Versioning
 
