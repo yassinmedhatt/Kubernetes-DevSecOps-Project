@@ -103,6 +103,13 @@ flowchart TD
     Q --> R[Liveness / Readiness<br/>Health Checks]
 ```
 
+## GitHub Actions Pipeline
+
+The complete CI/CD pipeline runs automatically after changes are pushed to the `main` branch.
+
+![GitHub Actions pipeline](docs/images/github-actions-pipeline.png)
+
+The pipeline performs source-code checks, dependency scanning, container security scanning, SBOM generation, image publishing to GHCR, and automated deployment to Minikube.
 
 The pipeline follows a security-focused workflow:
 
@@ -127,6 +134,8 @@ Kubernetes Rollout
    ↓
 Application Health Check
 ```
+
+
 
 ## Security Controls
 
