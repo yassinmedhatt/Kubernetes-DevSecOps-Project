@@ -41,7 +41,7 @@ Every push to the `main` branch triggers an automated pipeline that:
 .
 ├── .github/
 │   └── workflows/
-│       └── security-pipeline.yml
+│       └── security-pipeline.yaml
 │
 ├── k8s/
 │   ├── configmap.yaml
@@ -53,6 +53,11 @@ Every push to the `main` branch triggers an automated pipeline that:
 ├── src/
 │   └── server.js
 │
+├── docs/
+│   └── images/
+│       ├── github-actions-pipeline.png
+│       └── kubernetes-deployment.png
+│
 ├── .dockerignore
 ├── .gitignore
 ├── Dockerfile
@@ -60,8 +65,6 @@ Every push to the `main` branch triggers an automated pipeline that:
 ├── package-lock.json
 └── README.md
 ```
-
-## CI/CD Pipeline
 
 ## Architecture
 
@@ -111,7 +114,7 @@ The complete CI/CD pipeline runs automatically after changes are pushed to the `
 
 The pipeline performs source-code checks, dependency scanning, container security scanning, SBOM generation, image publishing to GHCR, and automated deployment to Minikube.
 
-The pipeline follows a security-focused workflow:
+The pipeline follows this workflow:
 
 ```text
 Git Push
@@ -134,8 +137,6 @@ Kubernetes Rollout
    ↓
 Application Health Check
 ```
-
-
 
 ## Security Controls
 
@@ -185,7 +186,7 @@ Its permissions are intentionally limited to:
 ```text
 Resource: Pods
 Namespace: secure-k8s
-Allowed:  get, list
+Allowed:   get, list
 ```
 
 The ServiceAccount cannot:
@@ -199,22 +200,44 @@ Access resources in other namespaces
 
 This follows the principle of least privilege and limits the potential impact if the application were compromised.
 
-### Deployment Integrity
+## Kubernetes Deployment
 
-Images are tagged using the Git commit SHA rather than a mutable tag such as `latest`.
+The application is deployed to a local Kubernetes cluster running on Minikube.
 
-Example:
+The Kubernetes configuration defines the Deployment, Service, ConfigMap, Secret, ServiceAccount, and RBAC permissions required to run the application securely.
+
+### Deployment Status
+
+The current Kubernetes workload is healthy and available:
 
 ```text
-ghcr.io/yassinmedhatt/kubernetes-devsecops-project:<commit-sha>
+Pod:         1/1 Running
+Deployment:  1/1 Available
+Service:     ClusterIP on port 3000
+Namespace:   secure-k8s
 ```
 
-The deployment process retrieves and deploys the exact image associated with the triggering commit, providing traceability between source code, the container image, and the running Kubernetes workload.
+The deployment uses a Docker image tagged with the Git commit SHA. During the CI/CD pipeline, the self-hosted runner retrieves the exact image from GitHub Container Registry, loads it into Minikube, and updates the Kubernetes Deployment using `kubectl set image`.
 
+This provides traceability between the source-code commit, container image, and running Kubernetes workload.
+
+![Kubernetes deployment](docs/images/kubernetes-deployment.png)
+
+### Application Health
+
+After deployment, the pipeline verifies the application health endpoint:
+
+```json
+{
+  "status": "healthy"
+}
+```
+
+The deployment is considered successful only after the Kubernetes rollout completes and the application health check passes.
 
 ## Image Versioning
 
-Container images are tagged using the Git commit SHA.
+Container images are tagged using the Git commit SHA rather than a mutable tag such as `latest`.
 
 For example:
 
@@ -222,21 +245,54 @@ For example:
 ghcr.io/yassinmedhatt/kubernetes-devsecops-project:<commit-sha>
 ```
 
-This allows each deployment to reference an exact, immutable version of the application rather than relying on a mutable tag such as `latest`.
+This allows each deployment to reference an exact version of the application and provides traceability between the source commit and the deployed container image.
 
-## Deployment
+## Self-Hosted Deployment Runner
 
-The project uses a **self-hosted GitHub Actions runner** running on the local Windows development machine.
+The final deployment stage runs on a **self-hosted GitHub Actions runner** hosted on the local Windows development machine.
 
-After the image is published to GHCR, the runner:
+This runner is used because the Kubernetes environment is a local Minikube cluster that is not publicly accessible from GitHub-hosted runners.
 
-1. Pulls the exact image associated with the triggering commit
-2. Loads the image into Minikube
-3. Updates the existing Kubernetes Deployment using `kubectl set image`
-4. Waits for the Kubernetes rollout to complete
-5. Performs an application health check
+The deployment flow is:
 
-This allows the CI/CD pipeline to automatically deploy new application versions to the local Kubernetes environment.
+```text
+GitHub Actions
+      ↓
+Publish image to GHCR
+      ↓
+Self-hosted runner
+      ↓
+docker pull
+      ↓
+GHCR image
+      ↓
+minikube image load
+      ↓
+Minikube
+      ↓
+kubectl set image
+      ↓
+Kubernetes Deployment
+```
+
+The runner performs the following deployment operations:
+
+1. Verifies that Minikube and Kubernetes are available.
+2. Pulls the exact Docker image associated with the triggering Git commit from GHCR.
+3. Loads the image into the local Minikube environment.
+4. Updates the existing Kubernetes Deployment with `kubectl set image`.
+5. Waits for the Kubernetes rollout to complete.
+6. Verifies the application's health endpoint.
+
+For security, the deployment job is restricted to pushes to the `main` branch:
+
+```yaml
+if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+```
+
+This prevents code from arbitrary pull requests from executing on the personal self-hosted runner.
+
+The runner is only responsible for the deployment stage. Application building and security scanning are performed on GitHub-hosted runners before the image is published to GHCR.
 
 ## Project Status
 
